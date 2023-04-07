@@ -1,15 +1,21 @@
-import asyncio
+import os
 from datetime import datetime
 from typing import Dict, List
 from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 
+load_dotenv()
 
-DATABASE_URL = "mongodb://localhost:27017/payments"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 async def aggregate_payments(dt_from: str,
                              dt_upto: str,
-                             group_type: str) -> Dict[str, List[int]]:
+                             group_type: str) -> Dict:
+    """
+        Функция считает сумму всех выплат за период
+        c dt_from по dt_upto и группирует по group_type
+    """
     client = AsyncIOMotorClient(DATABASE_URL)
     db = client["payments"]
     payments = db["payments"]
@@ -23,7 +29,7 @@ async def aggregate_payments(dt_from: str,
             }
         }
     ]
-
+    # Тип группирования
     match group_type:
         case "hour":
             group_id = {
@@ -65,21 +71,13 @@ async def aggregate_payments(dt_from: str,
 
         case _:
             raise ValueError(f"Invalid group_type: {group_type}")
-
+    # Добавляем группирование
     pipeline.append(
         {"$group": {"_id": group_id, "total_amount": {"$sum": "$value"}}})
+    # Добавляем сортировку
     pipeline.append({"$sort": {"_id": 1}})
-
+    # Посылаем запрос в БД на аггрегирование
     result = await payments.aggregate(pipeline).to_list(None)
     dataset = [r["total_amount"] for r in result]
     labels = [r["_id"] for r in result]
     return {"dataset": dataset, "labels": labels}
-
-
-# asyncio.run(
-#     aggregate_payments(
-#         dt_from="2022-10-01T00:00:00",
-#         dt_upto="2022-11-30T23:59:00",
-#         group_type="day",
-#     )
-# )
