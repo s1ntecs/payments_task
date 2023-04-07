@@ -102,16 +102,18 @@ async def aggregate_payments(dt_from: str,
                 labels.append(dt)
         except StopAsyncIteration:
             pass
-        if group_type == 'day':
-            current_date += timedelta(days=1)
-        elif group_type == 'hour':
-            current_date += timedelta(hours=1)
-        if group_type == 'month':
-            if current_date.month == 12:
-                current_date = current_date.replace(
-                    day=1, month=1, year=current_date.year+1)
-            else:
-                current_date = current_date.replace(
-                    day=1, month=current_date.month+1)
-
+        match group_type:
+            case "day":
+                current_date += timedelta(days=1)
+            case "hour":
+                current_date += timedelta(hours=1)
+            case "month":
+                if current_date.month == 12:
+                    current_date = current_date.replace(
+                        day=1, month=1, year=current_date.year+1)
+                else:
+                    current_date = current_date.replace(
+                        day=1, month=current_date.month+1)
+            case _:
+                raise ValueError(f"Invalid group_type: {group_type}")
     return {"dataset": dataset, "labels": labels}
